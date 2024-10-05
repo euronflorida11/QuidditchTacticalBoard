@@ -57,6 +57,16 @@ const initialTeam2 = [
     { x: 315, y: 320, color: 'yellow', role: 'seeker', direction: Math.PI / 5.8  }   // 左向き
 ];
 
+// プレイヤーやボールの状態を保存する関数
+function saveState() {
+    history.push({
+        team1: JSON.parse(JSON.stringify(team1)),
+        team2: JSON.parse(JSON.stringify(team2)),
+        balls: JSON.parse(JSON.stringify(balls))
+    });
+    redoStack = []; // 新しい操作が発生したらredoStackをクリア
+}
+
 // ボールのデータ
 const initialBalls = [
     { x: 300, y: 150, type: 'quaffle', color: colors.ball.quaffle },  // クアッフル
@@ -69,6 +79,7 @@ const initialBalls = [
 let team1 = JSON.parse(JSON.stringify(initialTeam1));
 let team2 = JSON.parse(JSON.stringify(initialTeam2));
 let balls = JSON.parse(JSON.stringify(initialBalls));
+
 
 // キャンバスのサイズをウィンドウサイズに合わせて調整する関数
 function resizeCanvas() {
@@ -240,8 +251,13 @@ resetButton.addEventListener('click', () => {
 undoButton.addEventListener('click', () => {
     if (history.length > 0) {
         redoStack.push(history.pop());
-        lines = history.length > 0 ? history[history.length - 1] : [];
-        initialDraw();
+        const lastState = history.length > 0 ? history[history.length - 1] : null;
+        if (lastState) {
+            team1 = lastState.team1;
+            team2 = lastState.team2;
+            balls = lastState.balls;
+            initialDraw(); // キャンバスの再描画
+        }
     }
 });
 
@@ -249,8 +265,11 @@ undoButton.addEventListener('click', () => {
 redoButton.addEventListener('click', () => {
     if (redoStack.length > 0) {
         history.push(redoStack.pop());
-        lines = history[history.length - 1];
-        initialDraw();
+        const currentState = history[history.length - 1];
+        team1 = currentState.team1;
+        team2 = currentState.team2;
+        balls = currentState.balls;
+        initialDraw(); // キャンバスの再描画
     }
 });
 
@@ -277,9 +296,13 @@ canvas.addEventListener(isTouchDevice ? 'touchmove' : 'mousemove', (e) => {
     }
 });
 
-canvas.addEventListener(isTouchDevice ? 'touchend' : 'mouseup', () => {
-    dragging = false;
-    draggedItem = null;
+// タッチデバイスのための終了処理
+canvas.addEventListener('touchend', (e) => {
+    if (dragging) {
+        saveState(); // 操作終了時に状態を保存
+        dragging = false;
+        draggedItem = null;
+    }
 });
 
 // マウスイベントを追加してPCのWebブラウザ対応
@@ -304,11 +327,23 @@ canvas.addEventListener('mousemove', (e) => {
     }
 });
 
-canvas.addEventListener('mouseup', () => {
-    dragging = false;
-    draggedItem = null;
+// プレイヤーやボールのドラッグ操作の終了時に状態を保存する
+canvas.addEventListener('mouseup', (e) => {
+    if (dragging) {
+        saveState(); // 操作終了時に状態を保存
+        dragging = false;
+        draggedItem = null;
+    }
 });
 
+// プレイヤーやボールを移動するドラッグ操作の終了時に状態を保存する
+canvas.addEventListener(isTouchDevice ? 'touchend' : 'mouseup', () => {
+    if (dragging) {
+        saveState(); // 操作終了時に状態を保存
+        dragging = false;
+        draggedItem = null;
+    }
+});
 
 // リセットボタンイベント
 resetButton.addEventListener('click', () => {
