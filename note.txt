@@ -94,3 +94,39 @@
 ・ 「Draw Mode」での描画は、直線ではなく、フリーハンドにしたい。
 ・ 「Draw Mode」での描画で、矢印を描けるようにしたい。
 ・画面下部に魔法の流れを動的に表現するエリアには魔法の「エクスペクト・パトローナム」が放出されているエフェクトを追加して
+
+// プレイヤーやボールをドラッグで移動させるためのイベントリスナー
+// ドラッグイベントリスナー（マウスおよびタッチ対応）
+canvas.addEventListener(isTouchDevice ? 'touchstart' : 'mousedown', (e) => {
+    const { mouseX, mouseY } = getMousePosition(e);
+    draggedItem = detectItem(mouseX, mouseY, team1) || detectItem(mouseX, mouseY, team2) || detectItem(mouseX, mouseY, balls);
+
+    if (draggedItem) {
+        dragging = true;
+        dragStart = { x: mouseX - draggedItem.x * (canvas.width / 600), y: mouseY - draggedItem.y * (canvas.height / 330) };
+    }
+});
+
+canvas.addEventListener(isTouchDevice ? 'touchmove' : 'mousemove', (e) => {
+    if (dragging && draggedItem) {
+        const { mouseX, mouseY } = getMousePosition(e);
+        draggedItem.x = (mouseX - dragStart.x) / (canvas.width / 600);
+        draggedItem.y = (mouseY - dragStart.y) / (canvas.height / 330);
+        initialDraw(); // 再描画
+    }
+});
+
+// ドラッグ終了時に状態を保存
+canvas.addEventListener(isTouchDevice ? 'touchend' : 'mouseup', () => {
+    if (dragging) {
+        saveState(); // 操作終了時に状態を保存
+        dragging = false;
+        draggedItem = null;
+    }
+});
+
+// ウィンドウのサイズ変更に対応
+window.addEventListener('resize', resizeCanvas);
+
+// 初期描画を実行
+resizeCanvas();

@@ -160,20 +160,20 @@ function drawGoals() {
     });
 }
 
-// プレイヤーまたはボールをクリックで検出する関数
+// プレイヤーまたはボールの検出関数
 function detectItem(x, y, items) {
     return items.find(item => {
         const itemX = item.x * (canvas.width / 600);
         const itemY = item.y * (canvas.height / 330);
         const distance = Math.hypot(x - itemX, y - itemY);
-        return distance < 30;
+        return distance < 30; // クリック範囲を30pxに設定
     });
 }
 
 // マウスまたはタッチイベントから座標を取得する関数
 function getMousePosition(e) {
     const rect = canvas.getBoundingClientRect(); // キャンバスの相対座標を取得
-    if (e.touches) {
+    if (e.touches && e.touches.length > 0) {
         return {
             mouseX: (e.touches[0].clientX - rect.left) * (canvas.width / rect.width),
             mouseY: (e.touches[0].clientY - rect.top) * (canvas.height / rect.height)
@@ -236,6 +236,10 @@ function initialDraw() {
     drawGame(); // コート、プレイヤー、ボールを描画
 }
 
+
+// 初期状態を記録する
+saveState();
+
 // リセットボタンイベント
 resetButton.addEventListener('click', () => {
     team1 = JSON.parse(JSON.stringify(initialTeam1));
@@ -245,23 +249,22 @@ resetButton.addEventListener('click', () => {
     history = [];
     redoStack = [];
     initialDraw();
+    saveState(); // リセット後の状態を保存
 });
 
-// 戻るボタンイベント
+// 戻るボタン（Undo）の機能
 undoButton.addEventListener('click', () => {
-    if (history.length > 0) {
+    if (history.length > 1) {
         redoStack.push(history.pop());
-        const lastState = history.length > 0 ? history[history.length - 1] : null;
-        if (lastState) {
-            team1 = lastState.team1;
-            team2 = lastState.team2;
-            balls = lastState.balls;
-            initialDraw(); // キャンバスの再描画
-        }
+        const lastState = history[history.length - 1];
+        team1 = lastState.team1;
+        team2 = lastState.team2;
+        balls = lastState.balls;
+        initialDraw();
     }
 });
 
-// やり直すボタンイベント
+// やり直すボタン（Redo）の機能
 redoButton.addEventListener('click', () => {
     if (redoStack.length > 0) {
         history.push(redoStack.pop());
@@ -269,15 +272,15 @@ redoButton.addEventListener('click', () => {
         team1 = currentState.team1;
         team2 = currentState.team2;
         balls = currentState.balls;
-        initialDraw(); // キャンバスの再描画
+        initialDraw();
     }
 });
 
 // ウィンドウのサイズ変更に対応
 window.addEventListener('resize', resizeCanvas);
 
-// プレイヤーやボールをドラッグで移動させるためのイベントリスナー
-canvas.addEventListener(isTouchDevice ? 'touchstart' : 'mousedown', (e) => {
+// ドラッグイベントリスナー（マウス専用）
+canvas.addEventListener('mousedown', (e) => {
     const { mouseX, mouseY } = getMousePosition(e);
     draggedItem = detectItem(mouseX, mouseY, team1) || detectItem(mouseX, mouseY, team2) || detectItem(mouseX, mouseY, balls);
 
@@ -287,7 +290,7 @@ canvas.addEventListener(isTouchDevice ? 'touchstart' : 'mousedown', (e) => {
     }
 });
 
-canvas.addEventListener(isTouchDevice ? 'touchmove' : 'mousemove', (e) => {
+canvas.addEventListener('mousemove', (e) => {
     if (dragging && draggedItem) {
         const { mouseX, mouseY } = getMousePosition(e);
         draggedItem.x = (mouseX - dragStart.x) / (canvas.width / 600);
@@ -296,38 +299,6 @@ canvas.addEventListener(isTouchDevice ? 'touchmove' : 'mousemove', (e) => {
     }
 });
 
-// タッチデバイスのための終了処理
-canvas.addEventListener('touchend', (e) => {
-    if (dragging) {
-        saveState(); // 操作終了時に状態を保存
-        dragging = false;
-        draggedItem = null;
-    }
-});
-
-// マウスイベントを追加してPCのWebブラウザ対応
-canvas.addEventListener('mousedown', (e) => {
-    const { mouseX, mouseY } = getMousePosition(e); // マウスの座標を取得
-    draggedItem = detectItem(mouseX, mouseY, team1) || detectItem(mouseX, mouseY, team2) || detectItem(mouseX, mouseY, balls); // プレイヤーやボールを検出
-    if (draggedItem) {
-        dragging = true;
-        dragStart = { 
-            x: mouseX - draggedItem.x * (canvas.width / 600), 
-            y: mouseY - draggedItem.y * (canvas.height / 330) 
-        };
-    }
-});
-
-canvas.addEventListener('mousemove', (e) => {
-    if (dragging && draggedItem) {
-        const { mouseX, mouseY } = getMousePosition(e); // マウス位置を取得
-        draggedItem.x = (mouseX - dragStart.x) / (canvas.width / 600);
-        draggedItem.y = (mouseY - dragStart.y) / (canvas.height / 330);
-        initialDraw(); // 再描画
-    }
-});
-
-// プレイヤーやボールのドラッグ操作の終了時に状態を保存する
 canvas.addEventListener('mouseup', (e) => {
     if (dragging) {
         saveState(); // 操作終了時に状態を保存
@@ -336,21 +307,32 @@ canvas.addEventListener('mouseup', (e) => {
     }
 });
 
-// プレイヤーやボールを移動するドラッグ操作の終了時に状態を保存する
-canvas.addEventListener(isTouchDevice ? 'touchend' : 'mouseup', () => {
+// タッチイベントリスナー（タッチ専用）
+canvas.addEventListener('touchstart', (e) => {
+    const { mouseX, mouseY } = getTouchPosition(e);
+    draggedItem = detectItem(mouseX, mouseY, team1) || detectItem(mouseX, mouseY, team2) || detectItem(mouseX, mouseY, balls);
+
+    if (draggedItem) {
+        dragging = true;
+        dragStart = { x: mouseX - draggedItem.x * (canvas.width / 600), y: mouseY - draggedItem.y * (canvas.height / 330) };
+    }
+});
+
+canvas.addEventListener('touchmove', (e) => {
+    if (dragging && draggedItem) {
+        const { mouseX, mouseY } = getTouchPosition(e);
+        draggedItem.x = (mouseX - dragStart.x) / (canvas.width / 600);
+        draggedItem.y = (mouseY - dragStart.y) / (canvas.height / 330);
+        initialDraw(); // 再描画
+    }
+});
+
+canvas.addEventListener('touchend', (e) => {
     if (dragging) {
         saveState(); // 操作終了時に状態を保存
         dragging = false;
         draggedItem = null;
     }
-});
-
-// リセットボタンイベント
-resetButton.addEventListener('click', () => {
-    team1 = JSON.parse(JSON.stringify(initialTeam1));
-    team2 = JSON.parse(JSON.stringify(initialTeam2));
-    balls = JSON.parse(JSON.stringify(initialBalls));
-    initialDraw();
 });
 
 // ウィンドウのサイズ変更に対応
