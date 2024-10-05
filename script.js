@@ -172,19 +172,25 @@ function detectItem(x, y, items) {
 
 // マウスまたはタッチイベントから座標を取得する関数
 function getMousePosition(e) {
-    const rect = canvas.getBoundingClientRect(); // キャンバスの相対座標を取得
+    const rect = canvas.getBoundingClientRect();
+    return {
+        mouseX: (e.clientX - rect.left) * (canvas.width / rect.width),
+        mouseY: (e.clientY - rect.top) * (canvas.height / rect.height)
+    };
+}
+
+// タッチイベントから座標を取得する関数
+function getTouchPosition(e) {
+    const rect = canvas.getBoundingClientRect();
     if (e.touches && e.touches.length > 0) {
         return {
             mouseX: (e.touches[0].clientX - rect.left) * (canvas.width / rect.width),
             mouseY: (e.touches[0].clientY - rect.top) * (canvas.height / rect.height)
         };
-    } else {
-        return {
-            mouseX: (e.clientX - rect.left) * (canvas.width / rect.width),
-            mouseY: (e.clientY - rect.top) * (canvas.height / rect.height)
-        };
     }
+    return { mouseX: 0, mouseY: 0 };  // デフォルト値（タッチがない場合）
 }
+
 
 
 // プレイヤーを描画する関数（進行方向を示す正三角形）
@@ -279,6 +285,36 @@ redoButton.addEventListener('click', () => {
 // ウィンドウのサイズ変更に対応
 window.addEventListener('resize', resizeCanvas);
 
+// タッチイベントリスナー（タッチ専用）
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();  // タッチ時にブラウザのデフォルト動作を防ぐ
+    const { mouseX, mouseY } = getTouchPosition(e);
+    draggedItem = detectItem(mouseX, mouseY, team1) || detectItem(mouseX, mouseY, team2) || detectItem(mouseX, mouseY, balls);
+
+    if (draggedItem) {
+        dragging = true;
+        dragStart = { x: mouseX - draggedItem.x * (canvas.width / 600), y: mouseY - draggedItem.y * (canvas.height / 330) };
+    }
+});
+
+
+canvas.addEventListener('touchmove', (e) => {
+    if (dragging && draggedItem) {
+        const { mouseX, mouseY } = getTouchPosition(e);  // タッチ用の座標取得
+        draggedItem.x = (mouseX - dragStart.x) / (canvas.width / 600);
+        draggedItem.y = (mouseY - dragStart.y) / (canvas.height / 330);
+        initialDraw(); // 再描画
+    }
+});
+
+canvas.addEventListener('touchend', (e) => {
+    if (dragging) {
+        saveState(); // 操作終了時に状態を保存
+        dragging = false;
+        draggedItem = null;
+    }
+});
+
 // ドラッグイベントリスナー（マウス専用）
 canvas.addEventListener('mousedown', (e) => {
     const { mouseX, mouseY } = getMousePosition(e);
@@ -300,34 +336,6 @@ canvas.addEventListener('mousemove', (e) => {
 });
 
 canvas.addEventListener('mouseup', (e) => {
-    if (dragging) {
-        saveState(); // 操作終了時に状態を保存
-        dragging = false;
-        draggedItem = null;
-    }
-});
-
-// タッチイベントリスナー（タッチ専用）
-canvas.addEventListener('touchstart', (e) => {
-    const { mouseX, mouseY } = getTouchPosition(e);
-    draggedItem = detectItem(mouseX, mouseY, team1) || detectItem(mouseX, mouseY, team2) || detectItem(mouseX, mouseY, balls);
-
-    if (draggedItem) {
-        dragging = true;
-        dragStart = { x: mouseX - draggedItem.x * (canvas.width / 600), y: mouseY - draggedItem.y * (canvas.height / 330) };
-    }
-});
-
-canvas.addEventListener('touchmove', (e) => {
-    if (dragging && draggedItem) {
-        const { mouseX, mouseY } = getTouchPosition(e);
-        draggedItem.x = (mouseX - dragStart.x) / (canvas.width / 600);
-        draggedItem.y = (mouseY - dragStart.y) / (canvas.height / 330);
-        initialDraw(); // 再描画
-    }
-});
-
-canvas.addEventListener('touchend', (e) => {
     if (dragging) {
         saveState(); // 操作終了時に状態を保存
         dragging = false;
